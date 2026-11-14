@@ -129,6 +129,20 @@ RSpec.describe CoPlan::Plans::Rebase do
       expect(apply(intervening[:content], rebased)[:content]).to eq("# H\nupdated")
     end
 
+    it "orders a heading insert at a removed-padding boundary before later body edits" do
+      base = "# H"
+      intervening = apply(base, [ { "op" => "replace_exact", "old_text" => "", "new_text" => "\n", "_pre_resolved_ranges" => [ [ 3, 3 ] ] } ])
+      operations = [
+        { "op" => "replace_section", "heading" => "# H", "include_heading" => false, "new_content" => "body" },
+        { "op" => "insert_under_heading", "heading" => "# H", "content" => "intro\n" },
+        { "op" => "replace_exact", "old_text" => "body", "new_text" => "updated" }
+      ]
+
+      rebased = rebase(base, operations, [ intervening[:applied] ], intervening[:content])
+
+      expect(apply(intervening[:content], rebased)[:content]).to eq("# H\n\nintro\nupdated")
+    end
+
     it "keeps same-position stored inserts ordered through a later operation" do
       base = "AB"
       intervening = apply(base, [ { "op" => "replace_exact", "old_text" => "", "new_text" => "X", "_pre_resolved_ranges" => [ [ 1, 1 ] ] } ])

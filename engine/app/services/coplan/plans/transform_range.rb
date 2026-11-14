@@ -12,6 +12,10 @@ module CoPlan
     class TransformRange
       class Conflict < StandardError; end
 
+      # Only Rebase creates these transient formatting adjustments. A typed
+      # hash keeps their boundary rule out of persisted/client edit metadata.
+      class PaddingEdit < Hash; end
+
       # Transform a range [s, e] through an edit that replaced [s2, e2] with text of length new_length.
       # Returns the transformed [s, e] or raises Conflict if ranges overlap.
       #
@@ -21,16 +25,16 @@ module CoPlan
       #   or new_range: [s2, s2 + new_length] — can derive delta from this
       def self.transform(range, edit_data)
         s, e = range
-        edit_data = edit_data.transform_keys(&:to_s)
+        edit_data = edit_data.dup.transform_keys!(&:to_s)
         delta = delta_of(edit_data)
 
-        edit_before?(range, edit_data["resolved_range"]) ? [ s + delta, e + delta ] : [ s, e ]
+        edit_before?(range, edit_data["resolved_range"], padding: edit_data.is_a?(PaddingEdit)) ? [ s + delta, e + delta ] : [ s, e ]
       end
 
       # Whether an edit of [s2, e2] sits before range [s, e] (the range
       # shifts by the edit's delta) or after it (the range stays put).
       # Raises Conflict when they overlap.
-      def self.edit_before?(range, edit_range)
+      def self.edit_before?(range, edit_range, padding: false)
         s, e = range
         s2, e2 = edit_range
 
@@ -39,6 +43,9 @@ module CoPlan
         if s == e
           return true if e2 <= s
           return false if s2 > s
+          # An insert can precede a separator being removed at its boundary.
+          # A real deletion/replacement retains the stricter conflict rule.
+          return false if padding && s2 == s
 
           raise Conflict, "Edit overlaps with insert point"
         end
@@ -67,10 +74,10 @@ module CoPlan
       # for +range_edit+'s range moving through +edit+, so the pair agrees
       # with ranges already moved that way. Raises Conflict on overlap.
       def self.exchange(edit, range_edit)
-        edit = edit.transform_keys(&:to_s)
-        range_edit = range_edit.transform_keys(&:to_s)
+        edit = edit.dup.transform_keys!(&:to_s)
+        range_edit = range_edit.dup.transform_keys!(&:to_s)
 
-        if edit_before?(range_edit["resolved_range"], edit["resolved_range"])
+        if edit_before?(range_edit["resolved_range"], edit["resolved_range"], padding: edit.is_a?(PaddingEdit))
           [ shifted(edit, 0), shifted(range_edit, delta_of(edit)) ]
         else
           [ shifted(edit, delta_of(range_edit)), shifted(range_edit, 0) ]
@@ -79,7 +86,8 @@ module CoPlan
 
       def self.shifted(edit, offset)
         s2, e2 = edit["resolved_range"]
-        { "resolved_range" => [ s2 + offset, e2 + offset ], "delta" => delta_of(edit) }
+        shifted = { "resolved_range" => [ s2 + offset, e2 + offset ], "delta" => delta_of(edit) }
+        edit.is_a?(PaddingEdit) ? PaddingEdit[shifted] : shifted
       end
       private_class_method :shifted
 

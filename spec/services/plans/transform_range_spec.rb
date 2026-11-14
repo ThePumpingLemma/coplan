@@ -296,6 +296,21 @@ RSpec.describe CoPlan::Plans::TransformRange do
     end
   end
 
+  describe "transient padding edits" do
+    it "allows a boundary insertion only for generated padding adjustments" do
+      padding = described_class::PaddingEdit["resolved_range" => [ 4, 5 ], "delta" => -1]
+      expect(described_class.transform([ 4, 4 ], padding)).to eq([ 4, 4 ])
+      expect { described_class.transform([ 4, 4 ], padding.to_h) }.to raise_error(described_class::Conflict)
+      expect { described_class.transform([ 4, 5 ], padding) }.to raise_error(described_class::Conflict)
+
+      moved, inserted = described_class.exchange(padding, { "resolved_range" => [ 4, 4 ], "delta" => 3 })
+      expect(moved).to be_a(described_class::PaddingEdit)
+      expect(moved["resolved_range"]).to eq([ 7, 8 ])
+      expect(inserted["resolved_range"]).to eq([ 4, 4 ])
+      expect(described_class.transform([ 7, 7 ], moved)).to eq([ 7, 7 ])
+    end
+  end
+
   describe "commutativity property" do
     it "produces the same result for non-overlapping edits regardless of order" do
       edit_a = { "resolved_range" => [ 0, 5 ], "delta" => 3 }

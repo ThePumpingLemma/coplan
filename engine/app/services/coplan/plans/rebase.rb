@@ -132,11 +132,11 @@ module CoPlan
 
         edits = []
         if before != new_before
-          edits << { "resolved_range" => [ transformed[0], transformed[0] + before.length ], "delta" => new_before.length - before.length }
+          edits << TransformRange::PaddingEdit["resolved_range" => [ transformed[0], transformed[0] + before.length ], "delta" => new_before.length - before.length]
         end
         if after != new_after
           start = transformed[0] + new_before.length + text.length
-          edits << { "resolved_range" => [ start, start + after.length ], "delta" => new_after.length - after.length }
+          edits << TransformRange::PaddingEdit["resolved_range" => [ start, start + after.length ], "delta" => new_after.length - after.length]
         end
         edits
       end
