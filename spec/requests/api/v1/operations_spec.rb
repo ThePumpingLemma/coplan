@@ -163,6 +163,23 @@ RSpec.describe "Api::V1::Operations", type: :request do
   end
 
   [ false, true ].each do |use_session|
+    it "returns 422 for non-string empty-section content (session: #{use_session})" do
+      document = CoPlan::Plan.create!(title: "Invalid section", created_by_user: alice)
+      version = CoPlan::PlanVersion.create!(plan: document, revision: 1, content_markdown: "# H", actor_type: "human", actor_id: alice.id)
+      document.update!(current_revision: 1, current_plan_version: version)
+      agent_has_read(document, alice_token)
+      session = create(:edit_session, plan: document, actor_id: alice_token.id) if use_session
+      expect {
+        post api_v1_plan_operations_path(document), params: { base_revision: 1, session_id: session&.id,
+          operations: [ { op: "replace_section", heading: "# H", include_heading: false, new_content: 3 } ] }, headers: headers, as: :json
+      }.not_to change { document.plan_versions.count }
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body["error"]).to include("new_content", "string")
+      expect(session.reload.operations_json).to be_empty if use_session
+    end
+  end
+
+  [ false, true ].each do |use_session|
     it "rebases empty-section padding without changing the wrong occurrence (session: #{use_session})" do
       document = CoPlan::Plan.create!(title: "Padding", created_by_user: alice)
       version = CoPlan::PlanVersion.create!(plan: document, revision: 1,

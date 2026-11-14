@@ -139,6 +139,7 @@ module CoPlan
 
         raise OperationError, "Operation #{index}: replace_section requires 'heading'" if heading.blank?
         raise OperationError, "Operation #{index}: replace_section requires 'new_content'" if new_content.nil?
+        raise OperationError, "Operation #{index}: replace_section requires 'new_content' to be a string" unless new_content.is_a?(String)
 
         range = if op.key?("_pre_resolved_ranges")
           op["_pre_resolved_ranges"][0]
