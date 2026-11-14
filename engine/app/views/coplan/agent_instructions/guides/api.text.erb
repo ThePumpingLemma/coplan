@@ -127,7 +127,7 @@ Guides: `<%= @base %>/agent-instructions/<guide>`, for example <<%= @base %>/age
 
 Stale operations and edit-session commits return `409` if their base version is missing or their target cannot be safely rebased. No partial version is saved. An operations target mismatch includes `expected` and `found` text; these also replace the former `expected_needle` and `expected_heading` fields. Session conflicts report the reason in `error`. Read the plan again before retrying.
 
-Invalid operation fields return `422`, including non-string `new_content` for `replace_section`. If rebasing an edit session detects invalid stored operations, commit returns `422` and leaves the session open.
+A non-string `new_content` for `replace_section` is invalid (`422`). A stale session rejected for this validation error remains open.
 
 ## Iframe domains
 
